@@ -76,7 +76,7 @@ export default async function Home() {
             {formatDate(data.date)}
           </p>
           <h1 className="text-2xl font-bold mt-0.5" style={{ color: "#ffffff" }}>
-            {getGreeting()} 👋
+            {getGreeting()}, Sri 👋
           </h1>
         </div>
         <div className="flex items-center gap-3">

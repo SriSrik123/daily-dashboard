@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 
-const WHOOP_API = "https://api.prod.whoop.com/developer/v1";
+const WHOOP_API = "https://api.prod.whoop.com/developer/v2";
 const TOKEN_URL = "https://api.prod.whoop.com/oauth/oauth2/token";
 
 export interface WhoopTokens {
@@ -108,8 +108,10 @@ async function buildDashboard(
     const durationMin = startStr && endStr
       ? Math.round((new Date(endStr).getTime() - new Date(startStr).getTime()) / 60_000)
       : 0;
+    const rawName = typeof w.sport_name === "string" ? w.sport_name : "";
+    const name = rawName.charAt(0).toUpperCase() + rawName.slice(1);
     return {
-      name: sportName(w.sport_id as number),
+      name: name || "Workout",
       duration: `${durationMin} min`,
       strain: typeof score?.strain === "number" ? Math.round(score.strain * 10) / 10 : 0,
       calories: typeof score?.kilojoule === "number" ? Math.round((score.kilojoule as number) * 0.239) : 0,
