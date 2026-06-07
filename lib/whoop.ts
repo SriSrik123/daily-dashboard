@@ -14,7 +14,7 @@ export async function loadTokens(): Promise<WhoopTokens | null> {
     const store = await cookies();
     const raw = store.get("whoop_tokens")?.value;
     if (!raw) return null;
-    return JSON.parse(raw) as WhoopTokens;
+    return JSON.parse(decodeURIComponent(raw)) as WhoopTokens;
   } catch {
     return null;
   }
