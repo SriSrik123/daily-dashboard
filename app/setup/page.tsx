@@ -1,3 +1,5 @@
+import { randomBytes } from "crypto";
+
 export default function SetupPage() {
   const clientId = process.env.WHOOP_CLIENT_ID!;
   const redirectUri = process.env.WHOOP_REDIRECT_URI!;
@@ -11,12 +13,15 @@ export default function SetupPage() {
     "offline",
   ].join(" ");
 
+  const state = randomBytes(16).toString("hex");
+
   const authUrl =
     `https://api.prod.whoop.com/oauth/oauth2/auth` +
     `?client_id=${encodeURIComponent(clientId)}` +
     `&redirect_uri=${encodeURIComponent(redirectUri)}` +
     `&response_type=code` +
-    `&scope=${encodeURIComponent(scopes)}`;
+    `&scope=${encodeURIComponent(scopes)}` +
+    `&state=${state}`;
 
   return (
     <div
