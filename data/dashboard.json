@@ -1,0 +1,52 @@
+{
+  "date": "2026-06-07",
+  "recovery": {
+    "score": 78,
+    "hrv": 62,
+    "restingHR": 48,
+    "spo2": 98
+  },
+  "strain": {
+    "score": 14.2,
+    "dayStrain": 14.2,
+    "workouts": [
+      {
+        "name": "Morning Run",
+        "duration": "42 min",
+        "strain": 11.3,
+        "calories": 480
+      },
+      {
+        "name": "Strength Training",
+        "duration": "35 min",
+        "strain": 8.7,
+        "calories": 310
+      }
+    ]
+  },
+  "sleep": {
+    "performance": 85,
+    "duration": "7h 22m",
+    "quality": "Good",
+    "stages": {
+      "awake": "18 min",
+      "light": "2h 44m",
+      "rem": "1h 38m",
+      "deep": "2h 42m"
+    }
+  },
+  "morningBriefing": {
+    "text": "Your body is well-recovered and primed for a high-output day. HRV is trending upward over the past 5 days — a strong signal that your training load is well-balanced. You have solid green light to push hard today.",
+    "workoutPlan": "Tempo run 5K + upper body hypertrophy session. Target strain: 15–17. Keep heart rate between 155–170 bpm during the tempo block.",
+    "notes": "Stay hydrated — yesterday's strain was elevated. Aim for 3L water. Sleep window tonight: 10:30 PM for optimal recovery before tomorrow's long run."
+  },
+  "weeklyStrain": [
+    { "day": "Mon", "strain": 12.4 },
+    { "day": "Tue", "strain": 16.8 },
+    { "day": "Wed", "strain": 8.2 },
+    { "day": "Thu", "strain": 15.1 },
+    { "day": "Fri", "strain": 14.2 },
+    { "day": "Sat", "strain": 0 },
+    { "day": "Sun", "strain": 0 }
+  ]
+}
