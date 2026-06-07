@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sri's Daily Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #080808;
+    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    padding-bottom: 60px;
+  }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(8,8,8,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid #1a1a1a;
+  }
+
+  .date-label { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #555; }
+  .greeting { font-size: 22px; font-weight: 700; margin-top: 2px; }
+
+  .live-badge {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 14px; border-radius: 999px;
+    background: rgba(0,255,135,0.08);
+    border: 1px solid rgba(0,255,135,0.2);
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+    color: #00ff87;
+  }
+  .live-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #00ff87;
+    box-shadow: 0 0 8px #00ff87;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  main { max-width: 640px; margin: 0 auto; padding: 28px 16px; display: flex; flex-direction: column; gap: 16px; }
+
+  .card {
+    background: #111;
+    border: 1px solid #1e1e1e;
+    border-radius: 24px;
+    padding: 24px;
+  }
+
+  /* Recovery Banner */
+  .banner {
+    border-radius: 18px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .banner.green { background: linear-gradient(135deg, rgba(0,255,135,0.1), rgba(0,255,135,0.02)); border: 1px solid rgba(0,255,135,0.2); }
+  .banner.yellow { background: linear-gradient(135deg, rgba(255,200,0,0.1), rgba(255,200,0,0.02)); border: 1px solid rgba(255,200,0,0.2); }
+  .banner.red { background: linear-gradient(135deg, rgba(255,60,60,0.1), rgba(255,60,60,0.02)); border: 1px solid rgba(255,60,60,0.2); }
+  .banner-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .banner-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
+  .banner-text { font-size: 13px; color: #aaa; margin-top: 2px; }
+
+  /* Rings */
+  .rings-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: #444; text-align: center; margin-bottom: 28px; }
+  .rings { display: flex; justify-content: space-around; flex-wrap: wrap; gap: 20px; }
+  .ring-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .ring-svg { transform: rotate(-90deg); }
+  .ring-bg { fill: none; }
+  .ring-fg { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1); }
+  .ring-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; }
+  .ring-container { position: relative; width: 130px; height: 130px; }
+  .ring-value { font-size: 26px; font-weight: 800; line-height: 1; }
+  .ring-sub { font-size: 11px; color: #555; margin-top: 2px; }
+  .ring-name { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; color: #888; }
+
+  /* Stats */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .stat-card {
+    background: #111; border: 1px solid #1e1e1e; border-radius: 18px;
+    padding: 16px 14px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .stat-icon { font-size: 18px; }
+  .stat-value { font-size: 22px; font-weight: 800; }
+  .stat-unit { font-size: 11px; color: #555; }
+  .stat-label { font-size: 11px; color: #555; font-weight: 600; letter-spacing: 0.06em; }
+
+  /* Sleep */
+  .section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .section-bar { width: 3px; height: 28px; border-radius: 999px; }
+  .section-title { font-size: 16px; font-weight: 700; }
+  .duration { margin-left: auto; text-align: right; }
+  .duration-label { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; }
+  .duration-value { font-size: 20px; font-weight: 800; }
+  .sleep-stages { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .stage {
+    background: rgba(59,130,246,0.05);
+    border: 1px solid rgba(59,130,246,0.12);
+    border-radius: 14px; padding: 12px 8px;
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+  }
+  .stage-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .stage-val { font-size: 12px; font-weight: 700; }
+  .stage-name { font-size: 10px; color: #555; }
+
+  /* Briefing */
+  .briefing-text { font-size: 14px; color: #bbb; line-height: 1.6; margin-bottom: 14px; }
+  .briefing-row { display: flex; flex-direction: column; gap: 10px; }
+  .briefing-item {
+    background: #161616; border-radius: 14px; padding: 14px 16px;
+    border-left: 3px solid;
+  }
+  .briefing-item-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+  .briefing-item-text { font-size: 13px; color: #aaa; line-height: 1.5; }
+
+  /* Workouts */
+  .workout-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .workout-strain { font-size: 12px; font-weight: 700; color: #ff6b35; background: rgba(255,107,53,0.1); border: 1px solid rgba(255,107,53,0.2); padding: 4px 12px; border-radius: 999px; }
+  .workout-list { display: flex; flex-direction: column; gap: 10px; }
+  .workout-item {
+    background: rgba(255,107,53,0.05); border: 1px solid rgba(255,107,53,0.12);
+    border-radius: 16px; padding: 14px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .workout-name { font-size: 14px; font-weight: 700; }
+  .workout-meta { font-size: 12px; color: #666; margin-top: 2px; }
+  .workout-strain-val { font-size: 18px; font-weight: 800; color: #ff6b35; }
+  .workout-strain-label { font-size: 10px; color: #555; text-align: right; }
+
+  /* Weekly Chart */
+  .chart-bars { display: flex; align-items: flex-end; gap: 8px; height: 80px; margin-top: 16px; }
+  .chart-col { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; }
+  .bar-wrap { flex: 1; display: flex; align-items: flex-end; width: 100%; }
+  .bar {
+    width: 100%; border-radius: 6px 6px 0 0;
+    min-height: 4px; transition: height 0.8s ease;
+  }
+  .bar.today { box-shadow: 0 0 12px rgba(255,107,53,0.5); }
+  .chart-day { font-size: 10px; color: #444; font-weight: 600; }
+  .chart-val { font-size: 10px; color: #555; }
+
+  /* Updated timestamp */
+  .updated { text-align: center; font-size: 11px; color: #333; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="date-label" id="date-label"></div>
+    <div class="greeting" id="greeting"></div>
+  </div>
+  <div class="live-badge">
+    <div class="live-dot"></div>
+    WHOOP
+  </div>
+</header>
+
+<main>
+
+  <!-- Recovery Banner -->
+  <div class="banner yellow" id="recovery-banner">
+    <div class="banner-dot" id="banner-dot" style="background:#ffc800;box-shadow:0 0 10px rgba(255,200,0,0.8)"></div>
+    <div>
+      <div class="banner-label" id="banner-label" style="color:#ffc800">Yellow — Moderate Recovery</div>
+      <div class="banner-text">Take it moderate today. Your body is still recovering.</div>
+    </div>
+  </div>
+
+  <!-- Rings -->
+  <div class="card">
+    <div class="rings-label">Today's Metrics</div>
+    <div class="rings">
+
+      <!-- Recovery Ring -->
+      <div class="ring-wrap">
+        <div class="ring-container">
+          <svg class="ring-svg" width="130" height="130" viewBox="0 0 130 130">
+            <circle class="ring-bg" cx="65" cy="65" r="54" stroke="rgba(0,255,135,0.12)" stroke-width="10"/>
+            <circle class="ring-fg" cx="65" cy="65" r="54" stroke="#00ff87" stroke-width="10"
+              stroke-dasharray="339.3"
+              stroke-dashoffset="190"
+              style="filter:drop-shadow(0 0 6px #00ff87)"
+              id="ring-recovery"/>
+          </svg>
+          <div class="ring-center">
+            <div class="ring-value" style="color:#00ff87">44</div>
+            <div class="ring-sub">score</div>
+          </div>
+        </div>
+        <div class="ring-name">Recovery</div>
+      </div>
+
+      <!-- Strain Ring -->
+      <div class="ring-wrap">
+        <div class="ring-container">
+          <svg class="ring-svg" width="130" height="130" viewBox="0 0 130 130">
+            <circle class="ring-bg" cx="65" cy="65" r="54" stroke="rgba(255,107,53,0.12)" stroke-width="10"/>
+            <circle class="ring-fg" cx="65" cy="65" r="54" stroke="#ff6b35" stroke-width="10"
+              stroke-dasharray="339.3"
+              stroke-dashoffset="152"
+              style="filter:drop-shadow(0 0 6px #ff6b35)"
+              id="ring-strain"/>
+          </svg>
+          <div class="ring-center">
+            <div class="ring-value" style="color:#ff6b35">11.8</div>
+            <div class="ring-sub">/ 21</div>
+          </div>
+        </div>
+        <div class="ring-name">Strain</div>
+      </div>
+
+      <!-- Sleep Ring -->
+      <div class="ring-wrap">
+        <div class="ring-container">
+          <svg class="ring-svg" width="130" height="130" viewBox="0 0 130 130">
+            <circle class="ring-bg" cx="65" cy="65" r="54" stroke="rgba(59,130,246,0.12)" stroke-width="10"/>
+            <circle class="ring-fg" cx="65" cy="65" r="54" stroke="#3b82f6" stroke-width="10"
+              stroke-dasharray="339.3"
+              stroke-dashoffset="102"
+              style="filter:drop-shadow(0 0 6px #3b82f6)"
+              id="ring-sleep"/>
+          </svg>
+          <div class="ring-center">
+            <div class="ring-value" style="color:#3b82f6">70</div>
+            <div class="ring-sub">perf</div>
+          </div>
+        </div>
+        <div class="ring-name">Sleep</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-icon">💚</div>
+      <div class="stat-value" style="color:#00ff87">91<span class="stat-unit">ms</span></div>
+      <div class="stat-label">HRV</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">❤️</div>
+      <div class="stat-value" style="color:#ff6b35">49<span class="stat-unit">bpm</span></div>
+      <div class="stat-label">Resting HR</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🫁</div>
+      <div class="stat-value" style="color:#3b82f6">97<span class="stat-unit">%</span></div>
+      <div class="stat-label">SpO₂</div>
+    </div>
+  </div>
+
+  <!-- Sleep Breakdown -->
+  <div class="card">
+    <div class="section-header">
+      <div class="section-bar" style="background:linear-gradient(180deg,#3b82f6,#1d4ed8)"></div>
+      <div class="section-title">Sleep Breakdown</div>
+      <div class="duration">
+        <div class="duration-label">Duration</div>
+        <div class="duration-value" style="color:#3b82f6">9h 17m</div>
+      </div>
+    </div>
+    <div class="sleep-stages">
+      <div class="stage">
+        <div class="stage-dot" style="background:#888"></div>
+        <div class="stage-val" style="color:#888">16m</div>
+        <div class="stage-name">Awake</div>
+      </div>
+      <div class="stage">
+        <div class="stage-dot" style="background:#60a5fa"></div>
+        <div class="stage-val" style="color:#60a5fa">3h 56m</div>
+        <div class="stage-name">Light</div>
+      </div>
+      <div class="stage">
+        <div class="stage-dot" style="background:#818cf8"></div>
+        <div class="stage-val" style="color:#818cf8">2h 10m</div>
+        <div class="stage-name">REM</div>
+      </div>
+      <div class="stage">
+        <div class="stage-dot" style="background:#3b82f6"></div>
+        <div class="stage-val" style="color:#3b82f6">2h 55m</div>
+        <div class="stage-name">Deep</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Morning Briefing -->
+  <div class="card">
+    <div class="section-header">
+      <div class="section-bar" style="background:linear-gradient(180deg,#a855f7,#7c3aed)"></div>
+      <div class="section-title">Morning Briefing</div>
+    </div>
+    <div class="briefing-text">
+      Recovery at 44% — yellow zone. HRV at 91ms is solid, resting HR 49bpm. You had a big swim session today (strain 11.1, max HR 179). Day strain sitting at 11.8. Keep it moderate this evening.
+    </div>
+    <div class="briefing-row">
+      <div class="briefing-item" style="border-color:#ff6b35">
+        <div class="briefing-item-label" style="color:#ff6b35">🏋️ Workout Plan</div>
+        <div class="briefing-item-text">Swimming done ✅ — 1h 2min session complete. If training again tonight, keep it light. Target strain under 14 for the day.</div>
+      </div>
+      <div class="briefing-item" style="border-color:#3b82f6">
+        <div class="briefing-item-label" style="color:#3b82f6">💤 Sleep Notes</div>
+        <div class="briefing-item-text">9h 17m in bed. Aim for consistent 10:30 PM bedtime to keep recovery trending up. Strong deep sleep (2h 55m).</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Workouts -->
+  <div class="card">
+    <div class="workout-header">
+      <div class="section-header" style="margin-bottom:0">
+        <div class="section-bar" style="background:linear-gradient(180deg,#ff6b35,#ea4311)"></div>
+        <div class="section-title">Today's Workout</div>
+      </div>
+      <div class="workout-strain">Day Strain: 11.8</div>
+    </div>
+    <div class="workout-list">
+      <div class="workout-item">
+        <div>
+          <div class="workout-name">🏊 Swimming</div>
+          <div class="workout-meta">62 min · 496 cal · Max HR 179</div>
+        </div>
+        <div>
+          <div class="workout-strain-val">11.1</div>
+          <div class="workout-strain-label">strain</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Weekly Strain -->
+  <div class="card">
+    <div class="section-header">
+      <div class="section-bar" style="background:linear-gradient(180deg,#ff6b35,#ea4311)"></div>
+      <div class="section-title">Weekly Strain</div>
+    </div>
+    <div class="chart-bars" id="chart"></div>
+  </div>
+
+  <div class="updated">Last updated: June 7, 2026 · 6:00 AM</div>
+
+</main>
+
+<script>
+  // Date & greeting
+  const now = new Date();
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('date-label').textContent =
+    `${days[now.getDay()]}, ${months[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
+  const h = now.getHours();
+  document.getElementById('greeting').textContent =
+    `${h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'}, Sri 👋`;
+
+  // Weekly chart data
+  const weekly = [
+    { day: 'Mon', strain: 0, today: false },
+    { day: 'Tue', strain: 0, today: false },
+    { day: 'Wed', strain: 0, today: false },
+    { day: 'Thu', strain: 0, today: false },
+    { day: 'Fri', strain: 0, today: false },
+    { day: 'Sat', strain: 11.8, today: true },
+    { day: 'Sun', strain: 0, today: false },
+  ];
+
+  const maxStrain = Math.max(...weekly.map(d => d.strain), 1);
+  const chart = document.getElementById('chart');
+  weekly.forEach(d => {
+    const col = document.createElement('div');
+    col.className = 'chart-col';
+    const pct = d.strain / 21 * 100;
+    col.innerHTML = `
+      <div class="bar-wrap">
+        <div class="bar${d.today ? ' today' : ''}" style="height:${Math.max(pct,2)}%;background:${d.today ? '#ff6b35' : '#2a2a2a'}"></div>
+      </div>
+      <div class="chart-day" style="color:${d.today ? '#ff6b35' : '#444'}">${d.day}</div>
+      ${d.strain > 0 ? `<div class="chart-val" style="color:${d.today?'#ff6b35':'#555'}">${d.strain}</div>` : '<div class="chart-val"></div>'}
+    `;
+    chart.appendChild(col);
+  });
+
+  // Animate rings on load
+  window.addEventListener('load', () => {
+    // Values already set in HTML as correct dashoffsets
+  });
+</script>
+
+</body>
+</html>
