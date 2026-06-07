@@ -12,8 +12,10 @@ export async function GET(req: NextRequest) {
 
   const endpoints = [
     "https://api.prod.whoop.com/developer/v1/recovery?limit=1",
+    "https://api.prod.whoop.com/developer/v1/recovery/collection?limit=1",
+    "https://api.prod.whoop.com/developer/v1/activity/sleep?limit=1",
+    "https://api.prod.whoop.com/developer/v1/activity/workout?limit=1",
     "https://api.prod.whoop.com/developer/v1/cycle?limit=1",
-    "https://api.prod.whoop.com/developer/v1/user/profile/basic",
   ];
 
   const results: Record<string, unknown> = {
