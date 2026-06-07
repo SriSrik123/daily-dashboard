@@ -2,9 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { saveTokens } from "@/lib/whoop";
 
 export async function GET(req: NextRequest) {
+  const error = req.nextUrl.searchParams.get("error");
+  const errorDesc = req.nextUrl.searchParams.get("error_description");
+  if (error) {
+    return NextResponse.json({ error, error_description: errorDesc, all_params: Object.fromEntries(req.nextUrl.searchParams) }, { status: 400 });
+  }
+
   const code = req.nextUrl.searchParams.get("code");
   if (!code) {
-    return NextResponse.json({ error: "No code in callback" }, { status: 400 });
+    return NextResponse.json({ error: "No code in callback", all_params: Object.fromEntries(req.nextUrl.searchParams) }, { status: 400 });
   }
 
   const res = await fetch("https://api.prod.whoop.com/oauth/oauth2/token", {
