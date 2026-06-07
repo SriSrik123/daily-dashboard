@@ -1,27 +1,41 @@
-import { randomBytes } from "crypto";
+"use client";
+
+import { useEffect } from "react";
+
+function generateState() {
+  const arr = new Uint8Array(16);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 export default function SetupPage() {
-  const clientId = process.env.WHOOP_CLIENT_ID!;
-  const redirectUri = process.env.WHOOP_REDIRECT_URI!;
-  const scopes = [
-    "read:recovery",
-    "read:cycles",
-    "read:sleep",
-    "read:workout",
-    "read:body_measurement",
-    "read:profile",
-    "offline",
-  ].join(" ");
+  useEffect(() => {
+    const state = generateState();
+    sessionStorage.setItem("whoop_state", state);
+  }, []);
 
-  const state = randomBytes(16).toString("hex");
+  function handleConnect() {
+    const state = sessionStorage.getItem("whoop_state") ?? generateState();
+    const scopes = [
+      "read:recovery",
+      "read:cycles",
+      "read:sleep",
+      "read:workout",
+      "read:body_measurement",
+      "read:profile",
+      "offline",
+    ].join(" ");
 
-  const authUrl =
-    `https://api.prod.whoop.com/oauth/oauth2/auth` +
-    `?client_id=${encodeURIComponent(clientId)}` +
-    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-    `&response_type=code` +
-    `&scope=${encodeURIComponent(scopes)}` +
-    `&state=${state}`;
+    const authUrl =
+      `https://api.prod.whoop.com/oauth/oauth2/auth` +
+      `?client_id=${encodeURIComponent(process.env.NEXT_PUBLIC_WHOOP_CLIENT_ID!)}` +
+      `&redirect_uri=${encodeURIComponent(process.env.NEXT_PUBLIC_WHOOP_REDIRECT_URI!)}` +
+      `&response_type=code` +
+      `&scope=${encodeURIComponent(scopes)}` +
+      `&state=${state}`;
+
+    window.location.href = authUrl;
+  }
 
   return (
     <div
@@ -44,18 +58,18 @@ export default function SetupPage() {
             Authorize your dashboard to read your WHOOP recovery, sleep, strain, and workout data.
           </p>
         </div>
-        <a
-          href={authUrl}
-          className="w-full py-4 rounded-2xl font-bold text-sm uppercase tracking-widest transition-all"
+        <button
+          onClick={handleConnect}
+          className="w-full py-4 rounded-2xl font-bold text-sm uppercase tracking-widest transition-all cursor-pointer"
           style={{
             background: "linear-gradient(135deg, #00ff87, #00cc6a)",
             color: "#000000",
           }}
         >
           Connect WHOOP →
-        </a>
+        </button>
         <p className="text-xs" style={{ color: "#444444" }}>
-          You&apos;ll be redirected to WHOOP to authorize, then brought back here automatically.
+          You&apos;ll be redirected to WHOOP to authorize, then brought back automatically.
         </p>
       </div>
     </div>
