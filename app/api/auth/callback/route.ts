@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { saveTokens } from "@/lib/whoop";
+import { saveTokensHeader, WhoopTokens } from "@/lib/whoop";
 
 export async function GET(req: NextRequest) {
   const error = req.nextUrl.searchParams.get("error");
-  const errorDesc = req.nextUrl.searchParams.get("error_description");
   if (error) {
-    return NextResponse.json({ error, error_description: errorDesc, all_params: Object.fromEntries(req.nextUrl.searchParams) }, { status: 400 });
+    return NextResponse.json({
+      error,
+      error_description: req.nextUrl.searchParams.get("error_description"),
+      all_params: Object.fromEntries(req.nextUrl.searchParams),
+    }, { status: 400 });
   }
 
   const code = req.nextUrl.searchParams.get("code");
   if (!code) {
-    return NextResponse.json({ error: "No code in callback", all_params: Object.fromEntries(req.nextUrl.searchParams) }, { status: 400 });
+    return NextResponse.json({ error: "No code in callback" }, { status: 400 });
   }
 
   const res = await fetch("https://api.prod.whoop.com/oauth/oauth2/token", {
@@ -31,11 +34,13 @@ export async function GET(req: NextRequest) {
   }
 
   const data = await res.json();
-  saveTokens({
+  const tokens: WhoopTokens = {
     access_token: data.access_token,
     refresh_token: data.refresh_token,
     expires_at: Date.now() + data.expires_in * 1000,
-  });
+  };
 
-  return NextResponse.redirect(new URL("/", req.url));
+  const response = NextResponse.redirect(new URL("/", req.url));
+  response.headers.set("Set-Cookie", saveTokensHeader(tokens));
+  return response;
 }

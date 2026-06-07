@@ -1,7 +1,5 @@
-import fs from "fs";
-import path from "path";
+import { cookies } from "next/headers";
 
-const TOKEN_FILE = path.join(process.cwd(), "data", "tokens.json");
 const WHOOP_API = "https://api.prod.whoop.com/developer/v1";
 const TOKEN_URL = "https://api.prod.whoop.com/oauth/oauth2/token";
 
@@ -11,17 +9,19 @@ export interface WhoopTokens {
   expires_at: number;
 }
 
-export function loadTokens(): WhoopTokens | null {
+export async function loadTokens(): Promise<WhoopTokens | null> {
   try {
-    if (!fs.existsSync(TOKEN_FILE)) return null;
-    return JSON.parse(fs.readFileSync(TOKEN_FILE, "utf-8"));
+    const store = await cookies();
+    const raw = store.get("whoop_tokens")?.value;
+    if (!raw) return null;
+    return JSON.parse(raw) as WhoopTokens;
   } catch {
     return null;
   }
 }
 
-export function saveTokens(tokens: WhoopTokens) {
-  fs.writeFileSync(TOKEN_FILE, JSON.stringify(tokens, null, 2));
+export function saveTokensHeader(tokens: WhoopTokens): string {
+  return `whoop_tokens=${encodeURIComponent(JSON.stringify(tokens))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000`;
 }
 
 export async function refreshAccessToken(refreshToken: string): Promise<WhoopTokens> {
@@ -37,34 +37,34 @@ export async function refreshAccessToken(refreshToken: string): Promise<WhoopTok
   });
   if (!res.ok) throw new Error(`Token refresh failed: ${await res.text()}`);
   const data = await res.json();
-  const tokens: WhoopTokens = {
+  return {
     access_token: data.access_token,
     refresh_token: data.refresh_token ?? refreshToken,
     expires_at: Date.now() + data.expires_in * 1000,
   };
-  saveTokens(tokens);
-  return tokens;
 }
 
-export async function getValidToken(): Promise<string> {
-  let tokens = loadTokens();
-  if (!tokens) throw new Error("Not authenticated — visit /setup to connect WHOOP");
+export async function getValidToken(): Promise<{ token: string; newTokens?: WhoopTokens }> {
+  const tokens = await loadTokens();
+  if (!tokens) throw new Error("Not authenticated");
   if (Date.now() >= tokens.expires_at - 60_000) {
-    tokens = await refreshAccessToken(tokens.refresh_token);
+    const newTokens = await refreshAccessToken(tokens.refresh_token);
+    return { token: newTokens.access_token, newTokens };
   }
-  return tokens.access_token;
+  return { token: tokens.access_token };
 }
 
 async function whoopFetch(path: string, token: string) {
   const res = await fetch(`${WHOOP_API}${path}`, {
     headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
   });
   if (!res.ok) throw new Error(`WHOOP API error ${res.status}: ${await res.text()}`);
   return res.json();
 }
 
-export async function fetchWhoopDashboard() {
-  const token = await getValidToken();
+export async function fetchWhoopDashboard(): Promise<{ data: ReturnType<typeof buildDashboard> extends Promise<infer T> ? T : never; newTokens?: WhoopTokens }> {
+  const { token, newTokens } = await getValidToken();
 
   const [recoveryRes, sleepRes, workoutsRes, cycleRes] = await Promise.all([
     whoopFetch("/recovery?limit=1", token),
@@ -73,26 +73,36 @@ export async function fetchWhoopDashboard() {
     whoopFetch("/cycle?limit=1", token),
   ]);
 
-  const recovery = recoveryRes.records?.[0];
-  const sleep = sleepRes.records?.[0];
-  const cycle = cycleRes.records?.[0];
+  const weeklyCyclesRes = await whoopFetch("/cycle?limit=7", token);
+  const data = await buildDashboard(recoveryRes, sleepRes, workoutsRes, cycleRes, weeklyCyclesRes);
+  return { data, newTokens };
+}
 
-  // Parse sleep duration
-  const sleepMs = sleep?.score?.stage_summary
-    ? (sleep.score.stage_summary.total_in_bed_time_milli ?? 0)
-    : 0;
-  const sleepHours = Math.floor(sleepMs / 3_600_000);
-  const sleepMins = Math.floor((sleepMs % 3_600_000) / 60_000);
+async function buildDashboard(
+  recoveryRes: Record<string, unknown>,
+  sleepRes: Record<string, unknown>,
+  workoutsRes: Record<string, unknown>,
+  cycleRes: Record<string, unknown>,
+  weeklyCyclesRes: Record<string, unknown>
+) {
+  const recovery = (recoveryRes.records as Record<string, unknown>[])?.[0];
+  const sleep = (sleepRes.records as Record<string, unknown>[])?.[0];
+  const cycle = (cycleRes.records as Record<string, unknown>[])?.[0];
+
   const fmtMs = (ms: number) => {
     const h = Math.floor(ms / 3_600_000);
     const m = Math.floor((ms % 3_600_000) / 60_000);
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
   };
 
-  // Parse workouts
-  const workouts = (workoutsRes.records ?? []).slice(0, 3).map((w: Record<string, unknown>) => {
+  const sleepScore = sleep?.score as Record<string, unknown> | undefined;
+  const sleepMs = (sleepScore?.stage_summary as Record<string, unknown>)?.total_in_bed_time_milli as number ?? 0;
+  const sleepHours = Math.floor(sleepMs / 3_600_000);
+  const sleepMins = Math.floor((sleepMs % 3_600_000) / 60_000);
+  const stageSummary = sleepScore?.stage_summary as Record<string, number> | undefined;
+
+  const workouts = ((workoutsRes.records as Record<string, unknown>[]) ?? []).slice(0, 3).map((w) => {
     const score = w.score as Record<string, unknown> | undefined;
-    const durationMs = typeof score?.kilojoule === "number" ? 0 : 0;
     const startStr = typeof w.start === "string" ? w.start : "";
     const endStr = typeof w.end === "string" ? w.end : "";
     const durationMin = startStr && endStr
@@ -106,12 +116,10 @@ export async function fetchWhoopDashboard() {
     };
   });
 
-  // Weekly strain — fetch last 7 cycles
-  const weeklyCyclesRes = await whoopFetch("/cycle?limit=7", token);
   const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const weeklyStrain = (weeklyCyclesRes.records ?? [])
+  const weeklyStrain = ((weeklyCyclesRes.records as Record<string, unknown>[]) ?? [])
     .reverse()
-    .map((c: Record<string, unknown>) => {
+    .map((c) => {
       const score = c.score as Record<string, unknown> | undefined;
       const d = new Date(typeof c.start === "string" ? c.start : "");
       return {
@@ -120,33 +128,35 @@ export async function fetchWhoopDashboard() {
       };
     });
 
-  const recoveryScore = recovery?.score?.recovery_score ?? 0;
+  const recoveryScore = recovery?.score as Record<string, unknown> | undefined;
+  const cycleScore = cycle?.score as Record<string, unknown> | undefined;
+  const score = typeof recoveryScore?.recovery_score === "number" ? recoveryScore.recovery_score : 0;
 
   return {
     date: new Date().toISOString().split("T")[0],
     recovery: {
-      score: recoveryScore,
-      hrv: Math.round(recovery?.score?.hrv_rmssd_milli ?? 0),
-      restingHR: Math.round(recovery?.score?.resting_heart_rate ?? 0),
-      spo2: Math.round(recovery?.score?.spo2_percentage ?? 0),
+      score: Math.round(score),
+      hrv: Math.round(typeof recoveryScore?.hrv_rmssd_milli === "number" ? recoveryScore.hrv_rmssd_milli : 0),
+      restingHR: Math.round(typeof recoveryScore?.resting_heart_rate === "number" ? recoveryScore.resting_heart_rate : 0),
+      spo2: Math.round(typeof recoveryScore?.spo2_percentage === "number" ? recoveryScore.spo2_percentage : 0),
     },
     strain: {
-      score: Math.round((cycle?.score?.strain ?? 0) * 10) / 10,
-      dayStrain: Math.round((cycle?.score?.strain ?? 0) * 10) / 10,
+      score: Math.round((typeof cycleScore?.strain === "number" ? cycleScore.strain : 0) * 10) / 10,
+      dayStrain: Math.round((typeof cycleScore?.strain === "number" ? cycleScore.strain : 0) * 10) / 10,
       workouts,
     },
     sleep: {
-      performance: Math.round(sleep?.score?.sleep_performance_percentage ?? 0),
+      performance: Math.round(typeof sleepScore?.sleep_performance_percentage === "number" ? sleepScore.sleep_performance_percentage : 0),
       duration: `${sleepHours}h ${sleepMins}m`,
-      quality: sleepQuality(sleep?.score?.sleep_performance_percentage ?? 0),
+      quality: sleepQuality(typeof sleepScore?.sleep_performance_percentage === "number" ? sleepScore.sleep_performance_percentage : 0),
       stages: {
-        awake: fmtMs(sleep?.score?.stage_summary?.total_awake_time_milli ?? 0),
-        light: fmtMs(sleep?.score?.stage_summary?.total_light_sleep_time_milli ?? 0),
-        rem: fmtMs(sleep?.score?.stage_summary?.total_rem_sleep_time_milli ?? 0),
-        deep: fmtMs(sleep?.score?.stage_summary?.total_slow_wave_sleep_time_milli ?? 0),
+        awake: fmtMs(stageSummary?.total_awake_time_milli ?? 0),
+        light: fmtMs(stageSummary?.total_light_sleep_time_milli ?? 0),
+        rem: fmtMs(stageSummary?.total_rem_sleep_time_milli ?? 0),
+        deep: fmtMs(stageSummary?.total_slow_wave_sleep_time_milli ?? 0),
       },
     },
-    morningBriefing: buildBriefing(recoveryScore, cycle?.score?.strain ?? 0),
+    morningBriefing: buildBriefing(Math.round(score), typeof cycleScore?.strain === "number" ? cycleScore.strain : 0),
     weeklyStrain,
   };
 }
@@ -166,7 +176,7 @@ function buildBriefing(recovery: number, strain: number) {
   return {
     text: `Recovery score: ${recovery}%. Your body is ${status} today. Current day strain: ${strain.toFixed(1)}.`,
     workoutPlan: "Check your WHOOP app for coach recommendations based on today's recovery.",
-    notes: `Stay consistent with your sleep schedule for optimal HRV trending.`,
+    notes: "Stay consistent with your sleep schedule for optimal HRV trending.",
   };
 }
 
@@ -178,15 +188,15 @@ function sportName(id: number): string {
     15: "Soccer", 16: "Softball", 17: "Squash", 18: "Swimming", 19: "Tennis",
     20: "Track & Field", 21: "Volleyball", 22: "Water Polo", 23: "Wrestling",
     24: "Boxing", 25: "Dance", 26: "Pilates", 27: "Yoga", 28: "Weightlifting",
-    29: "Cross Country Skiing", 230: "Functional Fitness", 231: "Duathlon",
-    232: "Gymnastics", 233: "Hiking", 234: "Horse Racing", 235: "Kayaking",
-    236: "Martial Arts", 237: "Mountain Biking", 238: "Paddle Tennis",
-    239: "Obstacle Course Racing", 240: "Olympic Weightlifting", 241: "Paddle Boarding",
-    242: "PowerLifting", 243: "Rock Climbing", 244: "Skateboarding",
-    245: "Snowboarding", 246: "Snowshoeing", 247: "Spin", 248: "Stairmaster",
-    249: "Surfing", 250: "Swimming", 251: "Table Tennis", 252: "Triathlon",
-    253: "Walking", 254: "Disc Golf", 255: "HIIT", 257: "Meditation",
-    258: "Other", 259: "Pickleball", 260: "Racquetball", 261: "Virtual Cycling",
+    230: "Functional Fitness", 231: "Duathlon", 232: "Gymnastics", 233: "Hiking",
+    234: "Horse Racing", 235: "Kayaking", 236: "Martial Arts", 237: "Mountain Biking",
+    238: "Paddle Tennis", 239: "Obstacle Course Racing", 240: "Olympic Weightlifting",
+    241: "Paddle Boarding", 242: "PowerLifting", 243: "Rock Climbing",
+    244: "Skateboarding", 245: "Snowboarding", 246: "Snowshoeing", 247: "Spin",
+    248: "Stairmaster", 249: "Surfing", 250: "Swimming", 251: "Table Tennis",
+    252: "Triathlon", 253: "Walking", 254: "Disc Golf", 255: "HIIT",
+    257: "Meditation", 258: "Other", 259: "Pickleball", 260: "Racquetball",
+    261: "Virtual Cycling",
   };
   return sports[id] ?? "Workout";
 }

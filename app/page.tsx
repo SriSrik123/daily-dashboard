@@ -3,9 +3,9 @@ import StatCard from "@/components/StatCard";
 import MorningBriefing from "@/components/MorningBriefing";
 import WorkoutCard from "@/components/WorkoutCard";
 import WeeklyChart from "@/components/WeeklyChart";
-import { fetchWhoopDashboard } from "@/lib/whoop";
-import { loadTokens } from "@/lib/whoop";
+import { fetchWhoopDashboard, loadTokens, saveTokensHeader } from "@/lib/whoop";
 import staticData from "@/data/dashboard.json";
+import { cookies } from "next/headers";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -38,11 +38,20 @@ export default async function Home() {
   let isLive = false;
 
   try {
-    const tokens = loadTokens();
+    const tokens = await loadTokens();
     if (tokens) {
-      const live = await fetchWhoopDashboard();
+      const { data: live, newTokens } = await fetchWhoopDashboard();
       data = live as typeof staticData;
       isLive = true;
+      if (newTokens) {
+        const store = await cookies();
+        store.set("whoop_tokens", encodeURIComponent(JSON.stringify(newTokens)), {
+          path: "/",
+          httpOnly: true,
+          sameSite: "lax",
+          maxAge: 31536000,
+        });
+      }
     }
   } catch {
     // fall through to static data
